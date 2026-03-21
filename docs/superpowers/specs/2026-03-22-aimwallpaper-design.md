@@ -296,9 +296,187 @@ AIMWallpaper/
 └── README.md
 ```
 
-## 9. 外部依赖与环境要求
+## 9. API 规范
+
+### 9.1 REST API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/assets/upload` | 上传素材文件（multipart/form-data），返回 asset_id |
+| GET | `/api/assets` | 列出当前项目的所有素材 |
+| DELETE | `/api/assets/{asset_id}` | 删除素材 |
+| POST | `/api/projects` | 新建壁纸项目 |
+| GET | `/api/projects` | 列出所有项目 |
+| GET | `/api/projects/{project_id}` | 获取项目详情（图层结构、版本历史） |
+| POST | `/api/projects/{project_id}/export` | 导出项目到 WE 目录 |
+| POST | `/api/projects/{project_id}/preview` | 触发预览，返回截图 URL |
+| POST | `/api/projects/{project_id}/undo` | 回退到上一版本快照 |
+| POST | `/api/examples/import` | 导入范例（.pkg 或文件夹路径） |
+| POST | `/api/examples/scan` | 批量扫描 WE workshop 目录 |
+| GET | `/api/examples` | 列出所有已导入的范例 |
+| GET | `/api/knowledge/patterns` | 查询知识库中的效果模式 |
+| PUT | `/api/knowledge/patterns/{id}/verify` | 用户确认/验证一个效果模式 |
+| DELETE | `/api/knowledge/patterns/{id}` | 删除一个效果模式 |
+| GET | `/api/knowledge/questions` | 获取 AI 待确认的问题列表 |
+| POST | `/api/knowledge/questions/{id}/answer` | 用户回答 AI 的问题 |
+| GET | `/api/config` | 获取当前配置 |
+| PUT | `/api/config` | 更新配置（AI 模型、WE 路径等） |
+
+### 9.2 WebSocket 对话协议
+
+连接端点：`ws://localhost:8000/ws/chat/{project_id}`
+
+**客户端 → 服务端消息格式：**
+
+```json
+{ "type": "user_message", "content": "给这张图加上下雨效果" }
+{ "type": "annotation", "region": { "x": 100, "y": 200, "w": 300, "h": 150 }, "label": "窗户区域" }
+```
+
+**服务端 → 客户端消息格式：**
+
+```json
+{ "type": "ai_message", "content": "好的，我来添加下雨效果。雨量偏大还是偏小？" }
+{ "type": "ai_thinking", "content": "正在分析知识库..." }
+{ "type": "generation_start", "task": "adding_rain_effect" }
+{ "type": "generation_progress", "task": "adding_rain_effect", "progress": 0.6 }
+{ "type": "generation_complete", "task": "adding_rain_effect", "preview_url": "/api/projects/1/preview/latest.png" }
+{ "type": "ai_question", "question_id": "q1", "content": "这个字段 'controlpoint1' 的值是 [960, 0, 0]，它可能是粒子发射位置。是这样吗？" }
+{ "type": "error", "code": "LLM_TIMEOUT", "message": "AI 模型响应超时，请重试" }
+```
+
+## 10. 预览机制
+
+### 10.1 WE CLI 预览流程
+
+1. **加载壁纸**：`wallpaper32.exe -control openWallpaper -file "<project_path>/project.json" -playback play`
+2. **等待渲染**：等待 2-3 秒让壁纸完成初始化和首帧渲染
+3. **截图捕获**：使用 Windows 窗口截图 API（通过 Python `pyautogui` 或 `mss` 库）截取 WE 渲染窗口
+4. **返回前端**：将截图保存为 PNG，通过 HTTP 提供给前端展示
+
+### 10.2 预览限制与备选方案
+
+- WE 必须已安装且正在运行（后台模式）
+- 预览延迟约 3-5 秒（加载 + 渲染 + 截图）
+- 如果 WE 未安装，降级为静态预览：仅显示图层结构和素材缩略图，不渲染动态效果
+- 如果 WE 已有壁纸运行中，先保存当前壁纸状态，预览完成后恢复
+
+## 11. SceneScript 生成
+
+### 11.1 API 参考来源
+
+- WE 官方 SceneScript 文档（ECMAScript 2018 子集）
+- 从范例壁纸中提取的 SceneScript 代码作为学习素材
+- 内置 API 摘要作为 LLM prompt 的一部分（核心 API：`thisScene`、`thisLayer`、`input`、`engine`）
+
+### 11.2 生成与验证流程
+
+1. AI 根据需求生成 SceneScript 代码
+2. **语法检查**：通过 `esprima` 或 `acorn`（Node.js）进行 JS 语法解析
+3. **API 白名单检查**：确认代码仅调用了已知的 SceneScript API（不允许 `fetch`、`eval` 等）
+4. **运行时测试**：将脚本加载到 WE 预览中，检测是否崩溃或报错
+5. 如果验证失败，AI 根据错误信息自动修复并重试（最多 3 次）
+
+## 12. 知识库置信度与生命周期
+
+### 12.1 置信度评估标准
+
+| 级别 | 分数范围 | 判定条件 |
+|------|---------|----------|
+| 高 | 0.8-1.0 | 字段名语义明确（name, visible, scale）；多个范例中重复出现相同结构；与社区文档一致 |
+| 中 | 0.5-0.8 | 数值型参数，字段名可识别但取值范围不确定；仅在 1-2 个范例中出现 |
+| 低 | 0-0.5 | 未知字段，用途不明；范例间模式冲突；可能有多种含义 |
+
+### 12.2 验证与生命周期
+
+- **自动提升**：中置信度模式被成功用于生成壁纸且用户未报错 → 提升 0.1
+- **用户确认**：用户在 AI 提问面板确认 → 直接提升到 0.9+
+- **降级/删除**：用户标记为错误 → 降至 0，标记为 deprecated；生成的壁纸用户反馈"效果不对" → 降 0.2
+- **清理策略**：confidence < 0.2 且超过 30 天未使用的模式自动归档
+
+## 13. 错误处理
+
+### 13.1 各层错误处理策略
+
+| 层 | 错误场景 | 处理方式 |
+|----|---------|---------|
+| **前端** | WebSocket 断连 | 自动重连（指数退避），显示"重新连接中..." |
+| **前端** | 上传文件过大/格式不支持 | 前端拦截，提示支持的格式和大小限制（图片 <50MB，视频 <500MB） |
+| **后端** | LLM API 超时/限流 | 重试 2 次（指数退避），失败后通知前端，用户可切换模型重试 |
+| **后端** | LLM 返回无效 JSON | Pydantic 校验失败 → 将错误信息反馈给 LLM 要求修正（最多 3 轮） |
+| **后端** | .pkg 解包失败 | 提示用户文件可能损坏或格式不支持，建议改用项目文件夹导入 |
+| **后端** | 生成的 scene.json 无效 | Pydantic Schema 校验 → 定位错误字段 → AI 自动修复 |
+| **预览** | WE 未安装或 CLI 不可用 | 降级为静态预览模式，提示用户安装 WE 以获得完整预览 |
+| **预览** | WE 加载壁纸后崩溃 | 超时检测（10s），终止预览进程，通知用户并提供错误日志 |
+| **知识库** | SQLite/ChromaDB 损坏 | 启动时完整性检查，损坏时从备份恢复或重建 |
+
+### 13.2 文件上传安全
+
+- 文件类型白名单：图片（PNG/JPG/BMP/TGA）、视频（MP4/WEBM）、音频（OGG/MP3/WAV）、WE 项目文件（.pkg/.json）
+- 文件大小限制：图片 50MB，视频 500MB，音频 50MB，.pkg 200MB
+- 文件名清理：移除路径遍历字符，使用 UUID 重命名存储
+
+## 14. 测试策略
+
+### 14.1 后端测试 (pytest)
+
+- **单元测试**：scene_builder（JSON 组装）、knowledge_base（CRUD + 检索）、example_analyzer（解析逻辑）
+- **集成测试**：完整的生成流水线（输入描述 → 输出项目文件），使用 mock LLM
+- **Schema 验证测试**：生成的 scene.json / project.json 通过 Pydantic 模型校验
+- **知识库测试**：效果模式的 CRUD、语义检索精度、置信度生命周期
+
+### 14.2 前端测试 (Vitest)
+
+- **组件测试**：ChatPanel、AssetPanel、PreviewPanel 的渲染和交互
+- **API 集成测试**：Mock WebSocket 和 REST API，测试前后端消息流
+
+### 14.3 端到端验证
+
+- 准备一组参考范例壁纸，导入知识库后，用固定的自然语言描述生成壁纸
+- 验证输出的项目文件结构完整、JSON 合法、可被 WE 加载
+
+## 15. 设计约束
+
+- **单用户应用**：作为本地工具运行，不考虑多用户并发
+- **对话状态**：存储在内存中（Zustand + 后端 session），重启后需新建对话
+- **Embedding 模型一致性**：config.yaml 中锁定 embedding 模型，切换模型时需重建向量索引
+- **数据库迁移**：使用 Alembic 管理 SQLite schema 变更
+
+## 16. 外部依赖与环境要求
 
 - **Wallpaper Engine**：已安装并可运行（用于预览），路径可配置
 - **Python 3.11+**：后端运行时
 - **Node.js 18+**：前端构建
 - **AI API Key**：至少配置一个 LLM provider（Claude/OpenAI/本地 Ollama）
+
+## 17. 配置文件 (config.yaml)
+
+```yaml
+wallpaper_engine:
+  path: "E:\\SteamLibrary\\steamapps\\common\\wallpaper_engine"
+  exe: "wallpaper32.exe"
+
+ai:
+  default_provider: "openai"       # openai / anthropic / ollama
+  openai:
+    api_key: ""
+    model: "gpt-4o"
+  anthropic:
+    api_key: ""
+    model: "claude-sonnet-4-20250514"
+  ollama:
+    base_url: "http://localhost:11434"
+    model: "llama3"
+
+embedding:
+  provider: "openai"               # openai / local
+  openai:
+    model: "text-embedding-3-small"
+  local:
+    model: "all-MiniLM-L6-v2"
+
+storage:
+  data_dir: "./data"
+  max_upload_size_mb: 500
+  preview_timeout_seconds: 10
+```
