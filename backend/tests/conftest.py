@@ -31,3 +31,26 @@ def client():
     from app.main import app
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture
+def app_db(tmp_path):
+    """Create a test DB and patch the app to use it."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from app.db.database import Base
+
+    db_path = tmp_path / "test.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    Base.metadata.create_all(engine)
+
+    import app.api.project as proj_module
+    original_get_session = proj_module._get_session
+
+    def _test_session():
+        return Session(engine)
+
+    proj_module._get_session = _test_session
+    yield engine
+    proj_module._get_session = original_get_session
+    engine.dispose()
