@@ -54,3 +54,25 @@ def app_db(tmp_path):
     yield engine
     proj_module._get_session = original_get_session
     engine.dispose()
+
+
+@pytest.fixture
+def knowledge_db(tmp_path):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from app.db.database import Base
+
+    db_path = tmp_path / "test_kb.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    Base.metadata.create_all(engine)
+
+    import app.api.knowledge as kb_module
+    original = kb_module._get_session
+
+    def _test_session():
+        return Session(engine)
+
+    kb_module._get_session = _test_session
+    yield engine
+    kb_module._get_session = original
+    engine.dispose()
