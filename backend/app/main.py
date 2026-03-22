@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from pathlib import Path
 
 from app.config import config
-from app.config import config as app_config
 from app.api.assets import router as assets_router
 from app.api.project import router as project_router
 from app.api.knowledge import router as knowledge_router
@@ -36,18 +35,18 @@ def health():
 
 @app.get("/api/config")
 def get_config():
-    return app_config.model_dump()
+    return config.model_dump()
 
 
 @app.put("/api/config")
 def update_config(body: dict):
     for key, value in body.items():
-        if hasattr(app_config, key):
-            sub_model = getattr(app_config, key)
+        if hasattr(config, key):
+            sub_model = getattr(config, key)
             if isinstance(value, dict) and hasattr(sub_model, '__fields__'):
                 for k, v in value.items():
                     if hasattr(sub_model, k):
                         setattr(sub_model, k, v)
             else:
-                setattr(app_config, key, value)
-    return app_config.model_dump()
+                setattr(config, key, value)
+    return config.model_dump()

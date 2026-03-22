@@ -1,5 +1,9 @@
+import logging
+
 import chromadb
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class VectorStore:
@@ -21,7 +25,8 @@ class VectorStore:
             kwargs["where"] = where
         try:
             results = self._collection.query(**kwargs)
-        except Exception:
+        except Exception as e:
+            logger.warning("Vector store query failed: %s", e)
             return []
         if not results["ids"] or not results["ids"][0]:
             return []
@@ -38,8 +43,8 @@ class VectorStore:
     def delete(self, doc_id: str):
         try:
             self._collection.delete(ids=[doc_id])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Vector store delete failed for %s: %s", doc_id, e)
 
     def count(self) -> int:
         return self._collection.count()
