@@ -28,6 +28,8 @@ class AIProviderConfig(BaseModel):
     openai: LLMProviderConfig = LLMProviderConfig(model="gpt-4o")
     anthropic: LLMProviderConfig = LLMProviderConfig(model="claude-sonnet-4-20250514")
     ollama: LLMProviderConfig = LLMProviderConfig(base_url="http://localhost:11434", model="llama3")
+    mosaic: LLMProviderConfig = LLMProviderConfig()
+    deepseek: LLMProviderConfig = LLMProviderConfig(base_url="https://api.deepseek.com/v1", model="deepseek-chat")
 
 
 class EmbeddingConfig(BaseModel):
@@ -36,11 +38,16 @@ class EmbeddingConfig(BaseModel):
     local_model: str = "all-MiniLM-L6-v2"
 
 
+class RemoveBgConfig(BaseModel):
+    api_key: str = ""
+
+
 class AppConfig(BaseModel):
     wallpaper_engine: WallpaperEngineConfig = WallpaperEngineConfig()
     storage: StorageConfig = StorageConfig()
     ai: AIProviderConfig = AIProviderConfig()
     embedding: EmbeddingConfig = EmbeddingConfig()
+    remove_bg: RemoveBgConfig = RemoveBgConfig()
 
 
 def load_config(path: Path = CONFIG_PATH) -> AppConfig:

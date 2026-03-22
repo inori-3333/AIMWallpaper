@@ -24,3 +24,8 @@ class TestConfigModels:
         assert cfg.ai.default_provider == "anthropic"
         assert cfg.ai.anthropic.api_key == "sk-test"
         assert cfg.embedding.provider == "local"
+
+    def test_remove_bg_config(self):
+        cfg = AppConfig()
+        assert hasattr(cfg, "remove_bg")
+        assert cfg.remove_bg.api_key == ""
