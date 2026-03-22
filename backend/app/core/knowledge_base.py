@@ -5,8 +5,10 @@ from app.db.models import EffectPattern
 
 
 class KnowledgeBaseService:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, vector_store=None, embedding_svc=None):
         self.session = session
+        self.vector_store = vector_store
+        self.embedding_svc = embedding_svc
 
     def create_pattern(
         self,
@@ -32,6 +34,15 @@ class KnowledgeBaseService:
         self.session.add(pattern)
         self.session.commit()
         self.session.refresh(pattern)
+        if self.vector_store is not None and self.embedding_svc is not None:
+            text = f"{pattern.name} {pattern.description}"
+            embedding = self.embedding_svc.embed(text)
+            self.vector_store.add(
+                doc_id=str(pattern.id),
+                text=text,
+                embedding=embedding,
+                metadata={"category": pattern.category},
+            )
         return pattern
 
     def get_pattern(self, pattern_id: int) -> EffectPattern | None:
@@ -58,6 +69,8 @@ class KnowledgeBaseService:
         if pattern:
             self.session.delete(pattern)
             self.session.commit()
+            if self.vector_store is not None:
+                self.vector_store.delete(str(pattern_id))
 
     def update_confidence(self, pattern_id: int, delta: float) -> EffectPattern:
         pattern = self.session.get(EffectPattern, pattern_id)
@@ -79,3 +92,20 @@ class KnowledgeBaseService:
             )
         )
         return list(self.session.execute(stmt).scalars().all())
+
+    def semantic_search(self, query: str, limit: int = 5) -> list[EffectPattern]:
+        """Semantic vector search, falling back to text search if no vector store."""
+        if self.vector_store is None or self.embedding_svc is None:
+            return self.search_patterns(query)
+        query_embedding = self.embedding_svc.embed(query)
+        hits = self.vector_store.query(query_embedding, n_results=limit)
+        results = []
+        for hit in hits:
+            try:
+                pattern_id = int(hit["id"])
+            except (ValueError, KeyError):
+                continue
+            pattern = self.session.get(EffectPattern, pattern_id)
+            if pattern is not None:
+                results.append(pattern)
+        return results

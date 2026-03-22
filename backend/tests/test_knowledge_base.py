@@ -1,5 +1,7 @@
 import pytest
+from unittest.mock import MagicMock
 from app.core.knowledge_base import KnowledgeBaseService
+from app.core.vector_store import VectorStore
 from app.db.models import EffectPattern
 
 
@@ -88,3 +90,21 @@ class TestSearchPatterns:
         kb.create_pattern(name="Rain", description="Rain", tags=["weather"])
         results = kb.search_patterns("glow")
         assert len(results) == 1
+
+
+class TestSemanticSearch:
+    def test_semantic_search_with_vector_store(self, db_session, tmp_path):
+        vs = VectorStore(persist_dir=str(tmp_path / "chroma"))
+        mock_embedding_svc = MagicMock()
+        mock_embedding_svc.embed.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+        kb = KnowledgeBaseService(db_session, vector_store=vs, embedding_svc=mock_embedding_svc)
+        p = kb.create_pattern(name="Rain Effect", description="Falling rain drops from the sky", category="weather")
+        results = kb.semantic_search("rain falling from sky", limit=5)
+        assert len(results) >= 1
+        assert results[0].name == "Rain Effect"
+
+    def test_semantic_search_fallback_to_text(self, db_session):
+        kb = KnowledgeBaseService(db_session)
+        kb.create_pattern(name="Rain Effect", description="Rain", category="weather")
+        results = kb.semantic_search("rain", limit=5)
+        assert len(results) >= 1
