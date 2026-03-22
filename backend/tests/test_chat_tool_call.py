@@ -118,7 +118,7 @@ class TestHandleToolCall:
              patch("app.api.chat.asyncio") as mock_asyncio:
             mock_config.remove_bg.api_key = "test-key"
             mock_config.storage.data_dir = str(tmp_path)
-            mock_asyncio.to_thread = AsyncMock(return_value=sep_result)
+            mock_asyncio.to_thread = AsyncMock(side_effect=[sep_result, None])
 
             result = await _handle_tool_call({"asset_id": "bg-1"}, ws, "proj-1")
 

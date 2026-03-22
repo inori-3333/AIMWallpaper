@@ -80,7 +80,11 @@ def _strip_tool_call(text: str) -> str:
 def _load_asset_index() -> list[dict]:
     index_path = Path(config.storage.data_dir) / "uploads" / "assets.json"
     if index_path.exists():
-        return json.loads(index_path.read_text(encoding="utf-8"))
+        try:
+            return json.loads(index_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            logger.warning("Corrupted assets.json at %s", index_path)
+            return []
     return []
 
 
