@@ -7,6 +7,7 @@ from app.api.assets import router as assets_router
 from app.api.project import router as project_router
 from app.api.knowledge import router as knowledge_router
 from app.api.examples import router as examples_router
+from app.api.chat import router as chat_router
 from app.db.database import init_db
 
 
@@ -26,6 +27,7 @@ app.include_router(assets_router)
 app.include_router(project_router)
 app.include_router(knowledge_router)
 app.include_router(examples_router)
+app.include_router(chat_router)
 
 
 @app.get("/api/health")
