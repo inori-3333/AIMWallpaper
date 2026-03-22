@@ -1,0 +1,35 @@
+{
+  "camera": {"center": [0, 0, 0], "eye": [0, 0, 1]},
+  "general": {
+    "properties": {
+      "schemecolor": {"value": "0.2 0.1 0.3"}
+    }
+  },
+  "objects": [
+    {
+      "name": "background",
+      "image": "materials/bg.png",
+      "visible": true,
+      "origin": "960 540 0",
+      "scale": "1 1 1",
+      "effects": [
+        {
+          "name": "rain",
+          "file": "effects/rain.json",
+          "passes": [
+            {
+              "combos": {"RAIN": 1},
+              "textures": ["materials/raindrop.png"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "clock_layer",
+      "image": "",
+      "visible": true,
+      "effects": []
+    }
+  ]
+}
