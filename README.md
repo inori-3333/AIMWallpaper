@@ -6,8 +6,8 @@ AI-driven [Wallpaper Engine](https://www.wallpaperengine.io/) dynamic wallpaper 
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                     TopNav                           │
-│  [AIMWallpaper]  [Project Dropdown]  [+ New Project] │
+│                     TopNav                          │
+│  [AIMWallpaper]  [Project Dropdown]  [+ New Project]│
 └─────────────────────────────────────────────────────┘
 ┌──────────────┬──────────────────┬────────────────────┐
 │  AssetPanel  │   PreviewPanel   │    ChatPanel       │
