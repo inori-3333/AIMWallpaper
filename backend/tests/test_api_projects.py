@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch, MagicMock
 
 
 class TestProjectAPI:
@@ -32,3 +33,25 @@ class TestProjectAPI:
         pid = create_resp.json()["project_id"]
         resp = client.post(f"/api/projects/{pid}/undo")
         assert resp.status_code == 400
+
+
+class TestProjectExportAndPreview:
+    def test_export_project(self, client, app_db, tmp_data_dir):
+        # Create a project first
+        resp = client.post("/api/projects", json={"name": "Test Export"})
+        project_id = resp.json()["project_id"]
+
+        target = str(tmp_data_dir / "exported")
+        resp = client.post(f"/api/projects/{project_id}/export", json={"target_dir": target})
+        # Will fail if project has no generated files yet — expect 400
+        assert resp.status_code in (200, 400)
+
+    def test_preview_project_no_we(self, client, app_db, tmp_data_dir):
+        resp = client.post("/api/projects", json={"name": "Test Preview"})
+        project_id = resp.json()["project_id"]
+
+        resp = client.post(f"/api/projects/{project_id}/preview")
+        data = resp.json()
+        # WE not installed in test env — either unavailable or empty preview_url
+        assert resp.status_code == 200
+        assert data.get("available") is False or not data.get("preview_url")
