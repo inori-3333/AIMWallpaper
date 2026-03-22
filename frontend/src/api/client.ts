@@ -44,6 +44,14 @@ export const api = {
   listExamples: () => request<ExampleEntry[]>('/examples'),
   importExample: (path: string) =>
     request<ExampleEntry>('/examples/import', { method: 'POST', body: JSON.stringify({ path }) }),
+  scanWorkshop: (path: string) =>
+    request<{ imported_count: number; total_count: number }>('/examples/scan', { method: 'POST', body: JSON.stringify({ path }) }),
+
+  // Knowledge mutations
+  verifyPattern: (id: number) =>
+    request<EffectPattern>(`/knowledge/patterns/${id}/verify`, { method: 'PUT' }),
+  deletePattern: (id: number) =>
+    request<{ status: string }>(`/knowledge/patterns/${id}`, { method: 'DELETE' }),
 
   // Config
   getConfig: () => request<Record<string, unknown>>('/config'),

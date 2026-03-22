@@ -3,7 +3,7 @@ wallpaper_engine:
   exe: "wallpaper32.exe"
 
 ai:
-  default_provider: "openai"
+  default_provider: "mosaic"
   openai:
     api_key: ""
     model: "gpt-4o"
@@ -13,9 +13,13 @@ ai:
   ollama:
     base_url: "http://localhost:11434"
     model: "llama3"
+  mosaic:
+    api_key: "cr_da223b00aa611366aae4336adf4ec554dc278bc7238954b9e22017e254fa44d7"
+    base_url: "http://s2a.centitenka.tech/api"
+    model: "claude-opus"
 
 embedding:
-  provider: "openai"
+  provider: "local"
   openai:
     model: "text-embedding-3-small"
   local:

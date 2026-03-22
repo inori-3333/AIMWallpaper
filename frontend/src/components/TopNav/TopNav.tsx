@@ -3,7 +3,12 @@ import { useProjects, useCreateProject } from '../../api/hooks'
 import { useProjectStore } from '../../stores/projectStore'
 import { useChatStore } from '../../stores/chatStore'
 
-export function TopNav() {
+interface TopNavProps {
+  activeTab: 'editor' | 'knowledge'
+  onTabChange: (tab: 'editor' | 'knowledge') => void
+}
+
+export function TopNav({ activeTab, onTabChange }: TopNavProps) {
   const { data: projects = [] } = useProjects()
   const createProject = useCreateProject()
   const { currentProjectId, setCurrentProject } = useProjectStore()
@@ -61,6 +66,21 @@ export function TopNav() {
           + New Project
         </button>
       )}
+
+      <div className="ml-auto flex bg-gray-700 rounded overflow-hidden">
+        <button
+          onClick={() => onTabChange('editor')}
+          className={`text-xs px-3 py-1 ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+        >
+          Editor
+        </button>
+        <button
+          onClick={() => onTabChange('knowledge')}
+          className={`text-xs px-3 py-1 ${activeTab === 'knowledge' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+        >
+          Knowledge
+        </button>
+      </div>
     </header>
   )
 }

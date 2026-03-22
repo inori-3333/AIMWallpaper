@@ -49,3 +49,35 @@ export function useExamples() {
 export function usePreviewProject() {
   return useMutation({ mutationFn: (id: string) => api.previewProject(id) })
 }
+
+export function useImportExample() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (path: string) => api.importExample(path),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['examples'] }),
+  })
+}
+
+export function useScanWorkshop() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (path: string) => api.scanWorkshop(path),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['examples'] }),
+  })
+}
+
+export function useVerifyPattern() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.verifyPattern(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['patterns'] }),
+  })
+}
+
+export function useDeletePattern() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.deletePattern(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['patterns'] }),
+  })
+}
