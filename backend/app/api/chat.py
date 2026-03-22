@@ -3,6 +3,8 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.core.ai_engine import AIEngine
 from app.config import config
+from app.db.database import get_session, get_engine
+from app.db.models import ChatMessage
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,18 +25,28 @@ def _get_ai_engine() -> AIEngine:
     return AIEngine.from_config(config)
 
 
-# In-memory session storage (single-user app)
-_sessions: dict[str, list[dict]] = {}
+def _load_history(project_id: str) -> list[dict]:
+    with get_session() as session:
+        rows = (
+            session.query(ChatMessage)
+            .filter(ChatMessage.project_id == project_id)
+            .order_by(ChatMessage.created_at)
+            .all()
+        )
+        return [{"role": r.role, "content": r.content} for r in rows]
+
+
+def _save_message(project_id: str, role: str, content: str):
+    with get_session() as session:
+        session.add(ChatMessage(project_id=project_id, role=role, content=content))
+        session.commit()
 
 
 @router.websocket("/ws/chat/{project_id}")
 async def chat_websocket(websocket: WebSocket, project_id: str):
     await websocket.accept()
 
-    if project_id not in _sessions:
-        _sessions[project_id] = []
-
-    history = _sessions[project_id]
+    history = _load_history(project_id)
 
     try:
         while True:
@@ -51,6 +63,7 @@ async def chat_websocket(websocket: WebSocket, project_id: str):
 
             if msg_type == "user_message" and content:
                 history.append({"role": "user", "content": content})
+                _save_message(project_id, "user", content)
 
                 # Send thinking indicator
                 await websocket.send_json({"type": "ai_thinking", "content": "Processing your request..."})
@@ -62,6 +75,7 @@ async def chat_websocket(websocket: WebSocket, project_id: str):
                         messages=history,
                     )
                     history.append({"role": "assistant", "content": response})
+                    _save_message(project_id, "assistant", response)
 
                     await websocket.send_json({"type": "ai_message", "content": response})
                 except Exception as e:
